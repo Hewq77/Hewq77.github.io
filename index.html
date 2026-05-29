@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wangquan He</title>
+    <link rel="icon" href="assets/favicon.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -15,6 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -35,7 +37,7 @@
     </script>
 </head>
 
-<body class="bg-background text-foreground antialiased font-sans">
+<body class="bg-background text-foreground antialiased font-sans" id="page-body">
     <nav class="top-nav glass fixed top-0 left-0 right-0 z-50 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 lg:h-20">
@@ -58,10 +60,18 @@
                             <li><a href="#educations" class="nav-item">Education</a></li>
                             <li><a href="#contact" class="nav-item">Contact</a></li> -->
                         </ul>
+                        <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+                            <i class="fas fa-moon theme-icon-dark"></i>
+                            <i class="fas fa-sun theme-icon-light"></i>
+                        </button>
                     </div>
                 </div>
 
                 <div class="lg:hidden flex items-center">
+                    <button id="theme-toggle-mobile" class="theme-toggle-btn mr-2" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+                        <i class="fas fa-moon theme-icon-dark"></i>
+                        <i class="fas fa-sun theme-icon-light"></i>
+                    </button>
                     <button class="mobile-menu-btn p-2 rounded-md text-neutral-600 hover:text-primary"
                         aria-label="Toggle navigation">
                         <i class="fas fa-bars"></i>
@@ -199,7 +209,7 @@
                             <h2 class="text-3xl font-serif font-bold text-primary">Research</h2>
                         </div>
                         <div class="prose max-w-none text-neutral-600 text-justify formal-font">
-                            <p>I am interested in image fusion and computer vision, with a particular focus on
+                            <p>I am interested in image fusion and computer vision, particularly in
                                 hyperspectral/multispectral fusion imaging and the adaptation of large foundation models
                                 for remote sensing intelligence.</p>
 
@@ -254,9 +264,18 @@
                                 <p class="text-sm text-neutral-500 mt-1">Selected publications from my research on
                                     remote sensing, computer vision, and deep learning.</p>
                             </div>
-                            <a href="pages/all-publications.html"
-                                class="text-sm font-medium text-accent hover:text-accent-dark transition-colors whitespace-nowrap mt-1">View
-                                Full List <i class="fas fa-arrow-right ml-1"></i></a>
+                            <div class="flex items-center gap-3 flex-shrink-0 mt-1">
+                                <a href="https://scholar.google.com/citations?user=tMZ30p8AAAAJ" target="_blank"
+                                    rel="noopener noreferrer" class="scholar-badge-link" title="Google Scholar Citations">
+                                    <span class="scholar-badge" id="scholar-badge-citations">
+                                        <span class="scholar-badge-label"><i class="fas fa-graduation-cap"></i>&nbsp;Google Citations</span>
+                                        <span class="scholar-badge-value">...</span>
+                                    </span>
+                                </a>
+                                <a href="pages/all-publications.html"
+                                    class="text-sm font-medium text-accent hover:text-accent-dark transition-colors whitespace-nowrap">View
+                                    Full List <i class="fas fa-arrow-right ml-1"></i></a>
+                            </div>
                         </div>
 
                         <div id="featured-publications-container" class="publications-list space-y-6"></div>
@@ -367,7 +386,7 @@
 
     <footer class="border-t border-neutral-200 py-8 mt-12 bg-neutral-50">
         <div class="max-w-[90rem] mx-auto px-4 text-center text-neutral-500 text-sm">
-            <p>&copy; <span id="current-year"></span> Wangquan He. All rights reserved.</p>
+            <p>&copy; <span id="current-year"></span> Wangquan He. All rights reserved. &nbsp;|&nbsp; Last updated: <span id="last-updated"></span></p>
         </div>
     </footer>
 

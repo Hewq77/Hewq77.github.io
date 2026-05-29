@@ -4,16 +4,170 @@ document.addEventListener('DOMContentLoaded', function() {
         currentYear.textContent = new Date().getFullYear();
     }
 
+    const lastUpdated = document.getElementById('last-updated');
+    if (lastUpdated) {
+        const d = new Date(document.lastModified);
+        lastUpdated.textContent = d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
+    }
+
     setupMobileMenu();
     setupSmoothScroll();
     setupNavHighlight();
     makeAllLinksOpenInNewTab();
     setupLinkObserver();
+    initThemeToggle();
+    loadScholarStats();
 
     loadNews();
     loadHonors();
     loadPublications();
 });
+
+// ==================== Theme Toggle ====================
+function initThemeToggle() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+
+    const toggleBtns = document.querySelectorAll('#theme-toggle, #theme-toggle-mobile');
+    toggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+    });
+}
+
+// ==================== Google Scholar Citations ====================
+function loadScholarStats() {
+    const scholarId = 'tMZ30p8AAAAJ';
+    const citationsEl = document.querySelector('#scholar-badge-citations .scholar-badge-value');
+
+    if (!citationsEl) return;
+
+    citationsEl.classList.add('loading');
+
+    // Try Google Scholar via CORS proxies, then fallback to Semantic Scholar API
+    const scholarUrl = 'https://scholar.google.com/citations?user=' + scholarId + '&hl=en';
+    const proxies = [
+        'https://api.allorigins.win/raw?url=' + encodeURIComponent(scholarUrl),
+        'https://corsproxy.io/?' + encodeURIComponent(scholarUrl),
+        'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(scholarUrl),
+    ];
+
+    fetchWithFallback(proxies)
+        .then(html => {
+            const citations = parseScholarCitations(html);
+            if (citations !== null) {
+                animateCount(citationsEl, citations);
+            } else {
+                // Fallback: Semantic Scholar API (has CORS support)
+                return fetchSemanticScholar(citationsEl, scholarId);
+            }
+        })
+        .catch(() => {
+            // Fallback: Semantic Scholar API
+            return fetchSemanticScholar(citationsEl, scholarId);
+        });
+}
+
+function fetchSemanticScholar(citationsEl, googleScholarId) {
+    // Semantic Scholar can look up by Google Scholar user ID
+    const url = 'https://api.semanticscholar.org/graph/v1/author/GOOGLE:' + googleScholarId + '?fields=citationCount';
+    return fetch(url)
+        .then(r => {
+            if (!r.ok) throw new Error('Semantic Scholar API ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            if (data && typeof data.citationCount === 'number') {
+                animateCount(citationsEl, data.citationCount);
+            } else {
+                showScholarError(citationsEl);
+            }
+        })
+        .catch(() => {
+            showScholarError(citationsEl);
+        });
+}
+
+function fetchWithFallback(urls) {
+    return urls.reduce((promise, url) => {
+        return promise.catch(() => fetch(url, { signal: AbortSignal.timeout(8000) }).then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        }));
+    }, Promise.reject());
+}
+
+function parseScholarCitations(html) {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Method 1: table cells
+        const cells = doc.querySelectorAll('#gsc_rsb_st td.gsc_rsb_std');
+        if (cells.length >= 1) {
+            const val = parseInt(cells[0].textContent.replace(/\D/g, ''), 10);
+            if (!isNaN(val)) return val;
+        }
+
+        // Method 2: all .gsc_rsb_std cells
+        const allCells = doc.querySelectorAll('.gsc_rsb_std');
+        if (allCells.length >= 1) {
+            const val = parseInt(allCells[0].textContent.replace(/\D/g, ''), 10);
+            if (!isNaN(val)) return val;
+        }
+
+        // Method 3: regex fallback on raw HTML
+        const match = html.match(/Citations<\/a>\s*<\/td>\s*<td[^>]*class="[^"]*gsc_rsb_std[^"]*"[^>]*>(\d[\d,]*)/i);
+        if (match) {
+            return parseInt(match[1].replace(/,/g, ''), 10);
+        }
+
+        // Method 4: broader regex
+        const match2 = html.match(/gsc_rsb_std[^>]*>\s*(\d[\d,]*)\s*<\/td>/i);
+        if (match2) {
+            return parseInt(match2[1].replace(/,/g, ''), 10);
+        }
+    } catch (e) {
+        console.warn('Scholar parse error:', e);
+    }
+    return null;
+}
+
+function animateCount(el, target) {
+    if (!el) return;
+    el.classList.remove('loading');
+
+    const duration = 800;
+    const start = 0;
+    const startTime = performance.now();
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.round(start + (target - start) * eased).toLocaleString();
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+
+    requestAnimationFrame(update);
+}
+
+function showScholarError(citationsEl) {
+    if (citationsEl) {
+        citationsEl.classList.remove('loading');
+        citationsEl.textContent = '-';
+    }
+}
 
 function setupMobileMenu() {
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
@@ -175,14 +329,37 @@ function renderFeaturedPublications(container, publications) {
         return;
     }
 
-    const list = document.createElement('ul');
-    list.className = 'pub-list-ul';
+    const grouped = new Map();
 
-    publications.forEach(pub => {
-        list.appendChild(createPublicationItem(pub));
+    publications
+        .slice()
+        .sort(compareAllPublications)
+        .forEach(pub => {
+            const yearLabel = getYearLabel(pub);
+            if (!grouped.has(yearLabel)) {
+                grouped.set(yearLabel, []);
+            }
+            grouped.get(yearLabel).push(pub);
+        });
+
+    Array.from(grouped.entries()).forEach(([year, items]) => {
+        const group = document.createElement('div');
+        group.className = 'pub-year-group';
+
+        const header = document.createElement('h3');
+        header.className = 'pub-year-header';
+        header.textContent = year;
+        group.appendChild(header);
+
+        const list = document.createElement('ul');
+        list.className = 'pub-list-ul';
+        items.forEach(pub => {
+            list.appendChild(createPublicationItem(pub));
+        });
+
+        group.appendChild(list);
+        container.appendChild(group);
     });
-
-    container.appendChild(list);
 }
 
 function renderAllPublicationsPage(container, publications) {
